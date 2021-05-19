@@ -7,7 +7,7 @@ using SharedArrays: SharedArray
 using Tables
 import IteratorInterfaceExtensions, TableTraits
 
-function getpath(dir, file) 
+function getpath(dir, file)
     path = joinpath(dir, file)
     #println("================ $path ================")
     path
@@ -58,8 +58,15 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
         @test_throws BoundsError z[1:300] = 1:300
     end
 
+    @testset "object pool datatype" begin
+        println("Testing object pool datatype selection...")
+        # should not error when nrow = 255 due to incorrect datatype selected for ObjectPool
+        s = SASLib.readsas("data_objectpool/pooltest255.sas7bdat")
+        @test size(s, 1) == 255
+    end
+
     @testset "case insensitive dict" begin
-        function testdict(lowercase_key, mixedcase_key, second_lowercase_key) 
+        function testdict(lowercase_key, mixedcase_key, second_lowercase_key)
 
             T = typeof(lowercase_key)
             d = SASLib.CIDict{T,Int}()
@@ -108,7 +115,7 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
 
     @testset "read basic test files (test*.sas7bdat)" begin
         dir = "data_pandas"
-        files = filter(x -> endswith(x, "sas7bdat") && startswith(x, "test"), 
+        files = filter(x -> endswith(x, "sas7bdat") && startswith(x, "test"),
             Base.Filesystem.readdir("$dir"))
         for f in files
             result = readfile(dir, f)
@@ -150,7 +157,7 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
         rs = readsas(fname, include_columns=[:MONTH, :YEAR])
         @test size(rs, 2) == 2
         @test sort(names(rs)) == sort([:MONTH, :YEAR])
-        
+
         rs = readsas(fname, include_columns=[1, 2, 7])
         @test size(rs, 2) == 3
         @test sort(names(rs)) == sort([:ACTUAL, :PREDICT, :PRODUCT])
@@ -171,12 +178,12 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
 
         # test bad include/exclude param
         # see https://discourse.julialang.org/t/test-warn-doesnt-work-with-warn-in-0-7/9001
-        @test_logs (:warn, "Unknown include column blah") (:warn, 
+        @test_logs (:warn, "Unknown include column blah") (:warn,
             "Unknown include column Year") readsas(fname, include_columns=[:blah, :Year])
-        @test_logs (:warn, "Unknown exclude column blah") (:warn, 
+        @test_logs (:warn, "Unknown exclude column blah") (:warn,
             "Unknown exclude column Year") readsas(fname, exclude_columns=[:blah, :Year])
         # error handling
-        @test_throws SASLib.ConfigError readsas(fname, 
+        @test_throws SASLib.ConfigError readsas(fname,
             include_columns=[1], exclude_columns=[1])
     end
 
@@ -187,8 +194,8 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
         @test size(rs) == (1440, 10)
         @test size(rs,1) == 1440
         @test size(rs,2) == 10
-        @test length(columns(rs)) == 10 
-        @test length(names(rs)) == 10 
+        @test length(columns(rs)) == 10
+        @test length(names(rs)) == 10
 
         # cell indexing
         @test rs[1][1] ≈ 925.0
@@ -204,7 +211,7 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
 
         # iteration
         @test sum(r[1] for r in rs) ≈ 730337.0
-        
+
         # portion of result set
         @test typeof(rs[1:2]) == SASLib.ResultSet
         @test typeof(rs[:ACTUAL, :PREDICT]) == SASLib.ResultSet
@@ -333,18 +340,18 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
     end
 
     @testset "array constructors" begin
-        
+
         rs = readfile("data_AHS2013", "homimp.sas7bdat")
         @test typeof(rs[:RAS]) == SASLib.ObjectPool{String,UInt16}
 
         # string_array_fn test for specific string columns
-        rs = readfile("data_AHS2013", "homimp.sas7bdat", 
+        rs = readfile("data_AHS2013", "homimp.sas7bdat",
             string_array_fn = Dict(:RAS => REGULAR_STR_ARRAY))
         @test typeof(rs[:RAS]) == Array{String,1}
         @test typeof(rs[:RAH]) != Array{String,1}
 
         # string_array_fn test for all string columns
-        rs = readfile("data_AHS2013", "homimp.sas7bdat", 
+        rs = readfile("data_AHS2013", "homimp.sas7bdat",
             string_array_fn = Dict(:_all_ => REGULAR_STR_ARRAY))
         @test typeof(rs[:RAS])     == Array{String,1}
         @test typeof(rs[:RAH])     == Array{String,1}
@@ -354,13 +361,13 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
 
         # number_array_fn test by column name
         makesharedarray(n) = SharedArray{Float64}(n)
-        rs = readfile("data_misc", "numeric_1000000_2.sas7bdat", 
+        rs = readfile("data_misc", "numeric_1000000_2.sas7bdat",
             number_array_fn = Dict(:f => makesharedarray))
         @test typeof(rs[:f]) == SharedArray{Float64,1}
         @test typeof(rs[:x]) == Array{Float64,1}
 
         # number_array_fn test for all numeric columns
-        rs = readfile("data_misc", "numeric_1000000_2.sas7bdat", 
+        rs = readfile("data_misc", "numeric_1000000_2.sas7bdat",
         number_array_fn = Dict(:_all_ => makesharedarray))
         @test typeof(rs[:f]) == SharedArray{Float64,1}
         @test typeof(rs[:x]) == SharedArray{Float64,1}
@@ -371,31 +378,31 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
     @testset "user specified column types" begin
 
         # normal use case
-        rs = readfile("data_pandas", "productsales.sas7bdat"; 
+        rs = readfile("data_pandas", "productsales.sas7bdat";
             verbose_level = 0, column_types = Dict(:YEAR => Int16, :QUARTER => Int8))
         @test eltype(rs[:YEAR]) == Int16
         @test eltype(rs[:QUARTER]) == Int8
 
         # error handling - warn() when a column cannot be converted
-        rs = readfile("data_pandas", "productsales.sas7bdat"; 
+        rs = readfile("data_pandas", "productsales.sas7bdat";
             verbose_level = 0, column_types = Dict(:YEAR => Int8, :QUARTER => Int8))
         @test eltype(rs[:YEAR]) == Float64
         @test eltype(rs[:QUARTER]) == Int8
         #TODO expect warning for :YEAR conversion
 
         # case insensitive column symbol
-        rs = readfile("data_pandas", "productsales.sas7bdat"; 
+        rs = readfile("data_pandas", "productsales.sas7bdat";
             verbose_level = 0, column_types = Dict(:Quarter => Int8))
         @test eltype(rs[:QUARTER]) == Int8
 
         # conversion to custom types
-        rs = readfile("data_pandas", "productsales.sas7bdat"; 
+        rs = readfile("data_pandas", "productsales.sas7bdat";
             verbose_level = 0, column_types = Dict(:Year => YearStr))
         @test eltype(rs[:YEAR]) == YearStr
 
         # test Union type
-        let T = Union{Int,Missing} 
-            rs = readfile("data_pandas", "productsales.sas7bdat"; 
+        let T = Union{Int,Missing}
+            rs = readfile("data_pandas", "productsales.sas7bdat";
                 verbose_level = 0, column_types = Dict(:Year => T))
             @test eltype(rs[:YEAR]) == T
         end
@@ -410,7 +417,7 @@ Base.convert(::Type{YearStr}, v::Float64) = YearStr(string(round(Int, v)))
     @testset "just reads" begin
         for dir in ["data_pandas", "data_reikoch", "data_AHS2013", "data_misc"]
             for f in readdir(dir)
-                if endswith(f, ".sas7bdat") && 
+                if endswith(f, ".sas7bdat") &&
                         !(f in ["zero_variables.sas7bdat"])
                     rs = readfile(dir, f)
                     @test size(rs, 1) > 0
